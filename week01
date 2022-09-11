@@ -1,1 +1,104 @@
+import numpy as np
+import pandas as pd
 
+#Q1
+print('Q1. Numpy version: ', np.__version__)
+df = pd.read_csv('data.txt', sep=',')
+print(df.head(), '\n')
+
+#Q2
+print('Q2. Dataset records: ', len(df), '\n')
+
+#Q3
+print('Q3. Three top brands:\n', df.Make.value_counts().sort_values(ascending=False).head(3), '\n')
+
+#Q4
+print('Q4. Number of Audi models: ', df[df.Make == 'Audi'].Model.nunique(), '\n')
+
+#Q5
+print('Q5. Number of columns with missing values:\n', df.isnull().sum(), '\n')
+
+#Q6
+print('Q6a. Median of engine cylinders: ', df['Engine Cylinders'].median())
+print('Q6b. Number of most frequent engine cyinders: ', df['Engine Cylinders'].mode())
+print('Q6c. Median of engine cylinders after fillna: ', df['Engine Cylinders'].fillna(4.0).median(), '\n')
+
+#Q7
+lotus = df[df.Make == 'Lotus']
+lotus = lotus[['Engine HP', 'Engine Cylinders']].drop_duplicates()
+print('Lotus dataset: ', lotus)
+X = lotus.to_numpy()
+print('X matrix: ', X)
+XTX = np.dot(X.T, X)
+print('X.T times X: ', XTX)
+y = np.array([1100, 800, 750, 850, 1300, 1000, 1000, 1300, 800])
+w = np.dot(np.dot(np.linalg.inv(XTX), X.T), y)
+print('XTX.I times X times X.T: ', w)
+
+Q1. Numpy version:  1.21.1
+  Make       Model  Year  ... city mpg  Popularity   MSRP
+0  BMW  1 Series M  2011  ...       19        3916  46135
+1  BMW    1 Series  2011  ...       19        3916  40650
+2  BMW    1 Series  2011  ...       20        3916  36350
+3  BMW    1 Series  2011  ...       18        3916  29450
+4  BMW    1 Series  2011  ...       18        3916  34500
+
+[5 rows x 16 columns] 
+
+Q2. Dataset records:  11914 
+
+Q3. Three top brands:
+ Chevrolet     1123
+Ford           881
+Volkswagen     809
+Name: Make, dtype: int64 
+
+Q4. Number of Audi models:  34 
+
+Q5. Number of columns with missing values:
+ Make                    0
+Model                   0
+Year                    0
+Engine Fuel Type        3
+Engine HP              69
+Engine Cylinders       30
+Transmission Type       0
+Driven_Wheels           0
+Number of Doors         6
+Market Category      3742
+Vehicle Size            0
+Vehicle Style           0
+highway MPG             0
+city mpg                0
+Popularity              0
+MSRP                    0
+dtype: int64 
+
+Q6a. Median of engine cylinders:  6.0
+Q6b. Number of most frequent engine cyinders:  0    4.0
+Name: Engine Cylinders, dtype: float64
+Q6c. Median of engine cylinders after fillna:  6.0 
+
+Q7. Lotus dataset:        
+        Engine HP  Engine Cylinders
+3912      189.0               4.0
+3913      218.0               4.0
+3918      217.0               4.0
+4216      350.0               8.0
+4257      400.0               6.0
+4259      276.0               6.0
+4262      345.0               6.0
+4292      257.0               4.0
+4293      240.0               4.0
+X matrix:  [[189.   4.]
+ [218.   4.]
+ [217.   4.]
+ [350.   8.]
+ [400.   6.]
+ [276.   6.]
+ [345.   6.]
+ [257.   4.]
+ [240.   4.]]
+X.T times X:  [[7.31684e+05 1.34100e+04]
+ [1.34100e+04 2.52000e+02]]
+XTX.I times X times X.T:  [  4.59494481 -63.56432501]
