@@ -1,0 +1,257 @@
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+
+# Functions
+
+def prepare_X(df, fill):
+    df_num = df[base]
+    df_num = df_num.fillna(fill)
+    X = df_num.values
+    return X
+
+def train_linear_regression(X, y):
+    ones = np.ones(X.shape[0])
+    X = np.column_stack([ones, X])
+
+    XTX = X.T.dot(X)
+    XTX_inv = np.linalg.inv(XTX)
+    w = XTX_inv.dot(X.T).dot(y)
+    
+    return w[0], w[1:]
+
+def rmse(y, y_pred):
+    error = y_pred - y
+    mse = (error ** 2).mean()
+    return np.sqrt(mse)
+
+def train_linear_regression_reg(X, y, r=0.0):
+    ones = np.ones(X.shape[0])
+    X = np.column_stack([ones, X])
+
+    XTX = X.T.dot(X)
+    reg = r * np.eye(XTX.shape[0])
+    XTX = XTX + reg
+
+    XTX_inv = np.linalg.inv(XTX)
+    w = XTX_inv.dot(X.T).dot(y)
+    
+    return w[0], w[1:]
+
+# Main
+
+df = pd.read_csv('housing.csv', sep=',')
+print(df.head(), '\n')
+plt.hist(x=df.median_house_value, bins=30)
+plt.show()
+
+#Q1
+dfsl = df[['latitude', 'longitude', 'housing_median_age', 'total_rooms', 'total_bedrooms', 'population', 'households', 'median_income', 'median_house_value']]
+print('Selected Dataframe: ', dfsl.head(), '\n')
+
+print('Q1. Missing value(s): ', dfsl.isnull().sum(), '\n')
+
+#Q2
+print('Q2. Population median value: ', dfsl.population.median(), '\n')
+
+#Q3
+n = len(dfsl)
+n_val = int(0.2 * n)
+n_test = int(0.2 * n)
+n_train = n - n_val - n_test
+
+np.random.seed(42)
+idx = np.arange(n)
+np.random.shuffle(idx)
+dfsh = dfsl.iloc[idx]
+
+dfsl_train = dfsh.iloc[:n_train].copy()
+dfsl_val = dfsh.iloc[n_train:n_train+n_val].copy()
+dfsl_test = dfsh.iloc[n_train+n_val:].copy()
+
+y_train = np.log1p(dfsl_train.median_house_value.values)
+y_val = np.log1p(dfsl_val.median_house_value.values)
+y_test = np.log1p(dfsl_test.median_house_value.values)
+
+del dfsl_train['median_house_value']
+del dfsl_val['median_house_value']
+del dfsl_test['median_house_value']
+                      
+base = ['latitude', 'longitude', 'housing_median_age', 'total_rooms', 'total_bedrooms', 'population', 'households', 'median_income']
+
+X_train = prepare_X(dfsl_train, 0)
+w_0, w = train_linear_regression(X_train, y_train)
+y_pred = w_0 + X_train.dot(w)
+
+print('Q3a. Training RSME (missing value imputation = 0): ', round(rmse(y_train, y_pred), 2))
+
+X_val = prepare_X(dfsl_val, 0)
+y_pred = w_0 + X_val.dot(w)
+
+print('Q3b. Validation RSME (missing value imputation = 0): ', round(rmse(y_val, y_pred), 2), '\n')
+
+X_train = prepare_X(dfsl_train, y_train.mean())
+w_0, w = train_linear_regression(X_train, y_train)
+y_pred = w_0 + X_train.dot(w)
+
+print('Q3c. Training RSME (missing value imputation = mean): ', round(rmse(y_train, y_pred), 2))
+
+X_val = prepare_X(dfsl_val, y_train.mean())
+y_pred = w_0 + X_val.dot(w)
+
+print('Q3d. Validation RSME (missing value imputation = mean): ', round(rmse(y_val, y_pred), 2), '\n')
+
+#Q4
+X_train = prepare_X(dfsl_train, 0)
+X_val = prepare_X(dfsl_val, 0)
+print ('Q4.')
+for r in [0, 0.000001, 0.0001, 0.001, 0.01, 0.1, 1, 5, 10]:
+    w_0, w = train_linear_regression_reg(X_train, y_train, r=r)
+    y_pred = w_0 + X_val.dot(w)
+    print('%6s' %r, rmse(y_val, y_pred))
+print ('\n')
+
+#Q5
+stdev = []
+for s in [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]:
+    np.random.seed(s)
+    np.random.shuffle(idx)
+    dfsh = dfsl.iloc[idx]
+
+    dfsl_train = dfsh.iloc[:n_train].copy()
+    dfsl_val = dfsh.iloc[n_train:n_train+n_val].copy()
+    dfsl_test = dfsh.iloc[n_train+n_val:].copy()
+
+    y_train = np.log1p(dfsl_train.median_house_value.values)
+    y_val = np.log1p(dfsl_val.median_house_value.values)
+    y_test = np.log1p(dfsl_test.median_house_value.values)
+
+    del dfsl_train['median_house_value']
+    del dfsl_val['median_house_value']
+    del dfsl_test['median_house_value']
+
+    X_train = prepare_X(dfsl_train, 0)
+    w_0, w = train_linear_regression(X_train, y_train)
+    y_pred = w_0 + X_train.dot(w)
+
+    print(round(rmse(y_train, y_pred), 3))
+
+    X_val = prepare_X(dfsl_val, 0)
+    y_pred = w_0 + X_val.dot(w)
+
+    stdev.append(rmse(y_val, y_pred))
+    print(round(stdev[s], 3), '\n')
+
+print('Q5. Standard deviation of different seed numbers: ', round(np.std(stdev), 3), '\n')
+
+#Q6
+np.random.seed(9)
+np.random.shuffle(idx)
+dfsh = dfsl.iloc[idx]
+
+dfsl_train = dfsh.iloc[:n_train].copy()
+dfsl_val = dfsh.iloc[n_train:n_train+n_val].copy()
+dfsl_test = dfsh.iloc[n_train+n_val:].copy()
+dfsl_ftrain = pd.concat([dfsl_train, dfsl_val])
+
+y_train = np.log1p(dfsl_train.median_house_value.values)
+y_val = np.log1p(dfsl_val.median_house_value.values)
+y_test = np.log1p(dfsl_test.median_house_value.values)
+
+del dfsl_train['median_house_value']
+del dfsl_val['median_house_value']
+del dfsl_test['median_house_value']
+del dfsl_ftrain['median_house_value']
+
+X_ftrain = prepare_X(dfsl_ftrain, 0)
+y_ftrain = np.concatenate([y_train, y_val])
+w_0, w = train_linear_regression_reg(X_ftrain, y_ftrain, r=0.001)
+
+X_test = prepare_X(dfsl_test, 0)
+y_pred = w_0 + X_test.dot(w)
+
+print('Q6. Test RSME: ', round(rmse(y_test, y_pred), 3), '\n')
+
+#Output:
+   longitude  latitude  ...  median_house_value  ocean_proximity
+0    -122.23     37.88  ...            452600.0         NEAR BAY
+1    -122.22     37.86  ...            358500.0         NEAR BAY
+2    -122.24     37.85  ...            352100.0         NEAR BAY
+3    -122.25     37.85  ...            341300.0         NEAR BAY
+4    -122.25     37.85  ...            342200.0         NEAR BAY
+
+[5 rows x 10 columns] 
+
+Selected Dataframe:     latitude  longitude  ...  median_income  median_house_value
+0     37.88    -122.23  ...         8.3252            452600.0
+1     37.86    -122.22  ...         8.3014            358500.0
+2     37.85    -122.24  ...         7.2574            352100.0
+3     37.85    -122.25  ...         5.6431            341300.0
+4     37.85    -122.25  ...         3.8462            342200.0
+
+[5 rows x 9 columns] 
+
+Q1. Missing value(s):  latitude                0
+longitude               0
+housing_median_age      0
+total_rooms             0
+total_bedrooms        207
+population              0
+households              0
+median_income           0
+median_house_value      0
+dtype: int64 
+
+Q2. Population median value:  1166.0 
+
+Q3a. Training RSME (missing value imputation = 0):  0.34
+Q3b. Validation RSME (missing value imputation = 0):  0.33 
+
+Q3c. Training RSME (missing value imputation = mean):  0.34
+Q3d. Validation RSME (missing value imputation = mean):  0.33 
+
+Q4.
+     0 0.3295330365226374
+ 1e-06 0.3295330361647366
+0.0001 0.3295330009700347
+ 0.001 0.329532703867548
+  0.01 0.3295319365995008
+   0.1 0.32969472053957927
+     1 0.3337887220006205
+     5 0.33924853455045306
+    10 0.34060638078095185
+
+
+0.336
+0.356 
+
+0.34
+0.348 
+
+0.339
+0.345 
+
+0.338
+0.34 
+
+0.339
+0.347 
+
+0.343
+0.334 
+
+0.338
+0.346 
+
+0.34
+0.343 
+
+0.342
+0.342 
+
+0.343
+0.343 
+
+Q5. Standard deviation of different seed numbers:  0.005 
+
+Q6. Test RSME:  0.345 
