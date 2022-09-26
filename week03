@@ -44,12 +44,13 @@ del dfsl_test['median_house_value']
 
 cm_train = dfsl_train.corr().unstack().sort_values(ascending=False)
 print('Q2. The correlation matrix for train dataset :\n', cm_train.round(2))
-#sns.heatmap(cm_train, annot=True)
-#plt.show()
+sns.heatmap(cm_train, annot=True)
+plt.show()
 
 above_average = (dfsl_ftrain['median_house_value'] > dfsl_ftrain['median_house_value'].mean()).astype('int')
 print('Q3. Mutual information score between ocean_proximity and above average median house value: ', round(mutual_info_score(dfsl_ftrain.ocean_proximity, above_average), 3))
 
+# Q4
 num = ['latitude', 'longitude', 'housing_median_age', 'total_rooms', 'total_bedrooms', 'population', 'households', 'median_income', 'rooms_per_household', 'bedrooms_per_room', 'population_per_household']
 cat = ['ocean_proximity']
 train_dict = dfsl_train[cat + num].to_dict(orient='records')
@@ -69,8 +70,9 @@ print(y_val, y_pred)
 accuracy = np.round(accuracy_score(y_val, y_pred),2)
 print('Q4. Accuracy score for training: ', accuracy)
 
+# Q5
 features = cat + num
-orig_score = 1 - accuracy
+orig_score = accuracy
 
 for c in features:
     subset = features.copy()
@@ -94,6 +96,7 @@ for c in features:
     score = accuracy_score(y_val, y_pred)
     print(c, orig_score - score, score)
 
+# Q6
 dfsl['median_house_value']=np.log1p(dfsl['median_house_value'])
 dfsl_ftrain, dfsl_test = train_test_split(dfsl, test_size=0.2, random_state=42)
 dfsl_train, dfsl_val = train_test_split(df_ftrain, test_size=0.25, random_state=42)
