@@ -22,10 +22,10 @@ dfsl['bedrooms_per_room'] = dfsl['total_bedrooms'] / dfsl['total_rooms']
 dfsl['population_per_household'] = dfsl['population'] / dfsl['households']
 print('Prepared Dataframe:\n', dfsl.head().T, '\n')
 
-#Q1
+# Q1
 print('Q1. The most frequent observation of ocean proximity: ', dfsl.ocean_proximity.mode()[0], '\n')
 
-#Q2
+# Q2
 dfsl_ftrain, dfsl_test = train_test_split(dfsl, test_size=0.2, random_state=42)
 dfsl_train, dfsl_val = train_test_split(dfsl_ftrain, test_size=0.25, random_state=42)
 
@@ -47,6 +47,7 @@ print('Q2. The correlation matrix for train dataset :\n', cm_train.round(2))
 sns.heatmap(cm_train, annot=True)
 plt.show()
 
+# Q3
 above_average = (dfsl_ftrain['median_house_value'] > dfsl_ftrain['median_house_value'].mean()).astype('int')
 print('Q3. Mutual information score between ocean_proximity and above average median house value: ', round(mutual_info_score(dfsl_ftrain.ocean_proximity, above_average), 3))
 
