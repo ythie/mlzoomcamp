@@ -42,7 +42,7 @@ del dfsl_train['median_house_value']
 del dfsl_val['median_house_value']
 del dfsl_test['median_house_value']
 
-cm_train = dfsl_train.corr().unstack().sort_values(ascending=False)
+cm_train = dfsl_train.corr()
 print('Q2. The correlation matrix for train dataset :\n', cm_train.round(2))
 sns.heatmap(cm_train, annot=True)
 plt.show()
