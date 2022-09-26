@@ -100,7 +100,7 @@ for c in features:
 # Q6
 dfsl['median_house_value']=np.log1p(dfsl['median_house_value'])
 dfsl_ftrain, dfsl_test = train_test_split(dfsl, test_size=0.2, random_state=42)
-dfsl_train, dfsl_val = train_test_split(df_ftrain, test_size=0.25, random_state=42)
+dfsl_train, dfsl_val = train_test_split(dfsl_ftrain, test_size=0.25, random_state=42)
 
 dfsl_train = dfsl_train.reset_index(drop=True)
 dfsl_val = dfsl_val.reset_index(drop=True)
