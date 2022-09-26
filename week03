@@ -1,0 +1,130 @@
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+import seaborn as sns
+from sklearn.feature_extraction import DictVectorizer
+from sklearn.linear_model import LogisticRegression, Ridge
+from sklearn.metrics import accuracy_score, mean_squared_error, mutual_info_score
+from sklearn.model_selection import train_test_split
+
+# Main
+
+df = pd.read_csv('housing.csv', sep=',')
+print(df.head().T, '\n')
+
+# Data Preparation
+df = df[['latitude', 'longitude', 'housing_median_age', 'total_rooms', 'total_bedrooms', 'population', 'households', 'median_income', 'median_house_value', 'ocean_proximity']]
+print('Selected Dataframe:\n', df.head().T, '\n')
+print('Missing value(s):\n', df.isnull().sum(), '\n')
+dfsl = df.fillna(0)
+dfsl['rooms_per_household'] = dfsl['total_rooms'] / dfsl['households']
+dfsl['bedrooms_per_room'] = dfsl['total_bedrooms'] / dfsl['total_rooms']
+dfsl['population_per_household'] = dfsl['population'] / dfsl['households']
+print('Prepared Dataframe:\n', dfsl.head().T, '\n')
+
+#Q1
+print('Q1. The most frequent observation of ocean proximity: ', dfsl.ocean_proximity.mode()[0], '\n')
+
+#Q2
+dfsl_ftrain, dfsl_test = train_test_split(dfsl, test_size=0.2, random_state=42)
+dfsl_train, dfsl_val = train_test_split(dfsl_ftrain, test_size=0.25, random_state=42)
+
+dfsl_ftrain = dfsl_ftrain.reset_index(drop=True)
+dfsl_train = dfsl_train.reset_index(drop=True)
+dfsl_val = dfsl_val.reset_index(drop=True)
+dfsl_test = dfsl_test.reset_index(drop=True)
+
+y_train = dfsl_train.median_house_value.values
+y_val = dfsl_val.median_house_value.values
+y_test = dfsl_test.median_house_value.values
+
+del dfsl_train['median_house_value']
+del dfsl_val['median_house_value']
+del dfsl_test['median_house_value']
+
+cm_train = dfsl_train.corr().unstack().sort_values(ascending=False)
+print('Q2. The correlation matrix for train dataset :\n', cm_train.round(2))
+#sns.heatmap(cm_train, annot=True)
+#plt.show()
+
+above_average = (dfsl_ftrain['median_house_value'] > dfsl_ftrain['median_house_value'].mean()).astype('int')
+print('Q3. Mutual information score between ocean_proximity and above average median house value: ', round(mutual_info_score(dfsl_ftrain.ocean_proximity, above_average), 3))
+
+num = ['latitude', 'longitude', 'housing_median_age', 'total_rooms', 'total_bedrooms', 'population', 'households', 'median_income', 'rooms_per_household', 'bedrooms_per_room', 'population_per_household']
+cat = ['ocean_proximity']
+train_dict = dfsl_train[cat + num].to_dict(orient='records')
+dv = DictVectorizer()
+dv.fit(train_dict)
+X_train = dv.transform(train_dict)
+
+model = LogisticRegression(solver='liblinear', C=1.0, max_iter=100, random_state=42)
+model.fit(X_train, y_train)
+
+val_dict = dfsl_val[cat + num].to_dict(orient='records')
+X_val = dv.transform(val_dict)
+
+y_pred = model.predict(X_val)
+
+print(y_val, y_pred)
+accuracy = np.round(accuracy_score(y_val, y_pred),2)
+print('Q4. Accuracy score for training: ', accuracy)
+
+features = cat + num
+orig_score = 1 - accuracy
+
+for c in features:
+    subset = features.copy()
+    subset.remove(c)
+    
+    train_dict = dfsl_train[subset].to_dict(orient='records')
+
+    dv = DictVectorizer(sparse=False)
+    dv.fit(train_dict)
+
+    X_train = dv.transform(train_dict)
+
+    model = LogisticRegression(solver='liblinear', C=1.0, max_iter=100, random_state=42)
+    model.fit(X_train, y_train)
+
+    val_dict = dfsl_val[subset].to_dict(orient='records')
+    X_val = dv.transform(val_dict)
+
+    y_pred = model.predict(X_val)
+
+    score = accuracy_score(y_val, y_pred)
+    print(c, orig_score - score, score)
+
+dfsl['median_house_value']=np.log1p(dfsl['median_house_value'])
+dfsl_ftrain, dfsl_test = train_test_split(dfsl, test_size=0.2, random_state=42)
+dfsl_train, dfsl_val = train_test_split(df_ftrain, test_size=0.25, random_state=42)
+
+dfsl_train = dfsl_train.reset_index(drop=True)
+dfsl_val = dfsl_val.reset_index(drop=True)
+dfsl_test = dfsl_test.reset_index(drop=True)
+
+y_train = dfsl_train.median_house_value.values
+y_val = dfsl_val.median_house_value.values
+y_test = dfsl_test.median_house_value.values
+
+del dfsl_train['median_house_value']
+del dfsl_val['median_house_value']
+del dfsl_test['median_house_value']
+
+train_dict = dfsl_train[cat + num].to_dict(orient='records')
+dv = DictVectorizer(sparse=False)
+dv.fit(train_dict)
+
+X_train = dv.transform(train_dict)
+
+val_dict = dfsl_val[cat + num].to_dict(orient='records')
+X_val = dv.transform(val_dict)
+
+for a in [0, 0.01, 0.1, 1, 10]:
+    model = Ridge(alpha=a, solver='sag', random_state=42)
+    model.fit(X_train, y_train)
+    
+    y_pred = model.predict(X_val)
+    
+    score = np.sqrt(mean_squared_error(y_val, y_pred))
+    
+    print(a, round(score, 3))
