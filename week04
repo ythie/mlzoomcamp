@@ -1,0 +1,305 @@
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+import seaborn as sns
+from sklearn.feature_extraction import DictVectorizer
+from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import roc_curve, roc_auc_score
+from sklearn.model_selection import KFold, train_test_split
+
+# Data Preparation
+
+df = pd.read_csv('AER_credit_card_data.csv', sep=',')
+print(df.head().T, '\n')
+print(df.dtypes)
+
+cat = ['owner', 'selfemp']
+num = ['reports', 'age', 'income', 'share', 'expenditure', 'dependents', 'months', 'active', 'majorcards']
+df.card = (df.card == 'yes').astype('int')
+print(df.head().T, '\n')
+
+# Q1
+
+df_ftrain, df_test = train_test_split(df, test_size=0.2, random_state=1)
+df_train, df_val = train_test_split(df_ftrain, test_size=0.25, random_state=1)
+
+df_train = df_train.reset_index(drop=True)
+df_val = df_val.reset_index(drop=True)
+df_test = df_test.reset_index(drop=True)
+
+y_train = df_train.card.values
+y_val = df_val.card.values
+y_test = df_test.card.values
+
+del df_train['card']
+del df_val['card']
+del df_test['card']
+
+print('Q1. AUC Scores:')
+for c in num:
+    auc = roc_auc_score(y_train, df_train[c])
+    if auc < 0.5:
+        auc = roc_auc_score(y_train, -df_train[c])
+    print('%9s, %.3f' % (c, auc))
+
+plt.figure(figsize=(5, 5))
+
+fpr, tpr, _ = roc_curve(y_train, df_train.share)
+plt.plot(fpr, tpr, label='+share')
+
+fpr, tpr, _ = roc_curve(y_train, -df_train.share)
+plt.plot(fpr, tpr, label='-share')
+
+plt.plot([0, 1], [0, 1], color='grey', linestyle='--')
+
+plt.legend()
+plt.show()
+
+sns.histplot(df_train.share[y_train == 1],
+             stat='density', bins=50,
+             color='orange', alpha=0.5,
+             label='positive')
+sns.histplot(df_train.share[y_train == 0],
+             stat='density', bins=50,
+             color='blue', alpha=0.5,
+             label='negative')
+
+plt.legend()
+plt.show()
+
+sns.histplot(-df_train.share[y_train == 1],
+             stat='density', bins=50,
+             color='orange', alpha=0.5,
+             label='positive')
+sns.histplot(-df_train.share[y_train == 0],
+             stat='density', bins=50,
+             color='blue', alpha=0.5,
+             label='negative')
+
+plt.legend()
+plt.show()
+
+# Q2
+
+columns = ["reports", "age", "income", "share", "expenditure", "dependents", "months", "majorcards", "active", "owner", "selfemp"]
+
+train_dicts = df_train[columns].to_dict(orient='records')
+dv = DictVectorizer(sparse=False)
+X_train = dv.fit_transform(train_dicts)
+
+model = LogisticRegression(solver='liblinear', C=1.0, max_iter=1000)
+model.fit(X_train, y_train)
+
+val_dicts = df_val[columns].to_dict(orient='records')
+X_val = dv.transform(val_dicts)
+
+y_pred = model.predict_proba(X_val)[:, 1]
+
+print('\nQ2. AUC for this validation set: ', roc_auc_score(y_val, y_pred))
+
+y_pred_bin = model.predict(X_val)
+print('AUC for this predicted set: ', roc_auc_score(y_val, y_pred_bin), '\n')
+
+plt.figure(figsize=(5, 5))
+
+fpr, tpr, _ = roc_curve(y_val, y_pred)
+plt.plot(fpr, tpr, label='probability')
+
+fpr, tpr, _ = roc_curve(y_val, y_pred_bin)
+plt.plot(fpr, tpr, label='hard prediction')
+
+plt.plot([0, 1], [0, 1], color='grey', linestyle='--')
+
+plt.legend()
+plt.show()
+
+# Q3
+
+def confusion_matrix_dataframe(y_val, y_pred):
+    scores = []
+
+    thresholds = np.linspace(0, 1, 101)
+
+    for t in thresholds:
+        actual_positive = (y_val == 1)
+        actual_negative = (y_val == 0)
+
+        predict_positive = (y_pred >= t)
+        predict_negative = (y_pred < t)
+
+        tp = (predict_positive & actual_positive).sum()
+        tn = (predict_negative & actual_negative).sum()
+
+        fp = (predict_positive & actual_negative).sum()
+        fn = (predict_negative & actual_positive).sum()
+
+        scores.append((t, tp, fp, fn, tn))
+
+    columns = ['threshold', 'tp', 'fp', 'fn', 'tn']
+    df_scores = pd.DataFrame(scores, columns=columns)
+    
+    return df_scores
+
+df_scores = confusion_matrix_dataframe(y_val, y_pred)
+print('Q3. Precision and Recall: ', df_scores[::10], '\n')
+
+df_scores['p'] = df_scores.tp / (df_scores.tp + df_scores.fp)
+df_scores['r'] = df_scores.tp / (df_scores.tp + df_scores.fn)
+
+plt.plot(df_scores.threshold, df_scores.p, label='precision')
+plt.plot(df_scores.threshold, df_scores.r, label='recall')
+
+plt.vlines(0.3, 0, 1, color='grey', linestyle='--', alpha=0.5)
+
+plt.legend()
+plt.show()
+
+# Q4
+
+df_scores['f1'] = 2 * df_scores.p * df_scores.r / (df_scores.p + df_scores.r)
+
+plt.figure(figsize=(10, 5))
+
+plt.plot(df_scores.threshold, df_scores.f1)
+plt.vlines(0.4, 0, 1.0, color='grey', linestyle='--', alpha=0.5)
+
+plt.xticks(np.linspace(0, 1, 11))
+plt.show()
+
+# Q5
+
+def train(df_train, y_train, C=1.0):
+    dicts = df_train[columns].to_dict(orient='records')
+
+    dv = DictVectorizer(sparse=False)
+    X_train = dv.fit_transform(dicts)
+
+    model = LogisticRegression(solver='liblinear', C=C)
+    model.fit(X_train, y_train)
+
+    return dv, model
+
+def predict(df, dv, model):
+    dicts = df[columns].to_dict(orient='records')
+
+    X = dv.transform(dicts)
+    y_pred = model.predict_proba(X)[:, 1]
+
+    return y_pred
+
+scores = []
+
+kfold = KFold(n_splits=5, shuffle=True, random_state=1)
+
+for train_idx, val_idx in kfold.split(df_ftrain):
+    df_train = df_ftrain.iloc[train_idx]
+    df_val = df_ftrain.iloc[val_idx]
+
+    y_train = df_train.card.values
+    y_val = df_val.card.values
+
+    dv, model = train(df_train, y_train, C=1.0)
+    y_pred = predict(df_val, dv, model)
+
+    auc = roc_auc_score(y_val, y_pred)
+    scores.append(auc)
+
+print('Q5. Mean and Standard Deviation across different folds: %.3f +- %.3f' % (np.mean(scores), np.std(scores)), '\n')
+
+# Q6
+
+kfold = KFold(n_splits=5, shuffle=True, random_state=1)
+
+for C in [0.01, 0.1, 1, 10]:
+    scores = []
+
+    for train_idx, val_idx in kfold.split(df_ftrain):
+        df_train = df_ftrain.iloc[train_idx]
+        df_val = df_ftrain.iloc[val_idx]
+
+        y_train = df_train.card.values
+        y_val = df_val.card.values
+
+        dv, model = train(df_train, y_train, C=C)
+        y_pred = predict(df_val, dv, model)
+
+        auc = roc_auc_score(y_val, y_pred)
+        scores.append(auc)
+
+    print('Q6. C value for the best mean score: C=%4s, %.3f +- %.3f' % (C, np.mean(scores), np.std(scores)))
+
+Output:
+                    0         1         2         3         4
+card              yes       yes       yes       yes       yes
+reports             0         0         0         0         0
+age          37.66667     33.25  33.66667      30.5  32.16667
+income           4.52      2.42       4.5      2.54    9.7867
+share         0.03327  0.005217  0.004156  0.065214  0.067051
+expenditure  124.9833  9.854167      15.0  137.8692  546.5033
+owner             yes        no       yes        no       yes
+selfemp            no        no        no        no        no
+dependents          3         3         4         0         2
+months             54        34        58        25        64
+majorcards          1         1         1         1         1
+active             12        13         5         7         5 
+
+card            object
+reports          int64
+age            float64
+income         float64
+share          float64
+expenditure    float64
+owner           object
+selfemp         object
+dependents       int64
+months           int64
+majorcards       int64
+active           int64
+dtype: object
+                    0         1         2         3         4
+card                1         1         1         1         1
+reports             0         0         0         0         0
+age          37.66667     33.25  33.66667      30.5  32.16667
+income           4.52      2.42       4.5      2.54    9.7867
+share         0.03327  0.005217  0.004156  0.065214  0.067051
+expenditure  124.9833  9.854167      15.0  137.8692  546.5033
+owner             yes        no       yes        no       yes
+selfemp            no        no        no        no        no
+dependents          3         3         4         0         2
+months             54        34        58        25        64
+majorcards          1         1         1         1         1
+active             12        13         5         7         5 
+
+Q1. AUC Scores:
+  reports, 0.717
+      age, 0.524
+   income, 0.591
+    share, 0.989
+expenditure, 0.991
+dependents, 0.533
+   months, 0.529
+   active, 0.604
+majorcards, 0.534
+
+Q2. AUC for this validation set:  0.995171242063847
+AUC for this predicted set:  0.9739783600107306 
+
+Q3. Precision and Recall:       threshold   tp  fp  fn  tn
+0          0.0  211  53   0   0
+10         0.1  210  17   1  36
+20         0.2  207   5   4  48
+30         0.3  205   5   6  48
+40         0.4  205   1   6  52
+50         0.5  204   1   7  52
+60         0.6  204   1   7  52
+70         0.7  204   1   7  52
+80         0.8  204   1   7  52
+90         0.9  204   0   7  53
+100        1.0  179   0  32  53 
+
+Q5. Mean and Standard Deviation across different folds: 0.996 +- 0.003 
+
+Q6. C value for the best mean score: C=0.01, 0.992 +- 0.006
+Q6. C value for the best mean score: C= 0.1, 0.995 +- 0.004
+Q6. C value for the best mean score: C=   1, 0.996 +- 0.003
+Q6. C value for the best mean score: C=  10, 0.996 +- 0.003
