@@ -70,6 +70,7 @@ for n in tqdm(range(10, 201, 10)):
 
 df_scores = pd.DataFrame(scores, columns=['n_estimators', 'rmse'])
 plt.plot(df_scores.n_estimators, df_scores.rmse.round(3))
+print('Q3. Plateau for n estimators: ', scores)
 
 # Q4
 scores = []
@@ -95,8 +96,8 @@ df_scores = pd.DataFrame(scores, columns=columns)
 for d in [10, 15, 20, 25]:
     df_subset = df_scores[df_scores.max_depth == d]
     plt.plot(df_subset.n_estimators, df_subset.rmse, label=d)
-
 plt.legend()
+print('Q4. Best max depth: ', scores)
 
 # Q5
 rf = RandomForestRegressor(n_estimators=10, max_depth=20, 
@@ -108,7 +109,7 @@ df_importances = pd.DataFrame()
 df_importances['feature'] = dv.get_feature_names()
 df_importances['importance'] = rf.feature_importances_
 print(df_importances)
-print(df_importances.sort_values(by='importance', ascending=False).head())
+print('Q5. The most important feature: ', df_importances.sort_values(by='importance', ascending=False).head())
 
 # Q6
 features = dv.get_feature_names()
@@ -118,26 +119,7 @@ features = [regex.sub("_", col) if any(x in str(col) for x in set(('[', ']', '<'
 dtrain = xgb.DMatrix(X_train, label=y_train, feature_names=features)
 dval = xgb.DMatrix(X_val, label=y_val, feature_names=features)
 watchlist = [(dtrain, 'train'), (dval, 'val')]
-      
-def parse_xgb_output(output):
-    results = []
 
-    for line in output.stdout.strip().split('\n'):
-        it_line, train_line, val_line = line.split('\t')
-
-        it = int(it_line.strip('[]'))
-        train = float(train_line.split(':')[1])
-        val = float(val_line.split(':')[1])
-
-        results.append((it, train, val))
-    
-    columns = ['num_iter', 'train_auc', 'val_auc']
-    df_results = pd.DataFrame(results, columns=columns)
-    return df_results
-
-scores = {}
-
-%%capture output
 xgb_params = {
     'eta': 0.3, 
     'max_depth': 6,
@@ -150,11 +132,10 @@ xgb_params = {
     'verbosity': 1,
 }
 
+print('Q6. Eta = 0.3')
 model = xgb.train(xgb_params, dtrain, num_boost_round=100,
                   verbose_eval=5, evals=watchlist)
-scores['eta=0.3'] = parse_xgb_output(output)
 
-%%capture output
 xgb_params = {
     'eta': 0.1, 
     'max_depth': 6,
@@ -167,15 +148,6 @@ xgb_params = {
     'verbosity': 1,
 }
 
+print('Q6. Eta = 0.1')
 model = xgb.train(xgb_params, dtrain, num_boost_round=100,
                   verbose_eval=5, evals=watchlist)
-scores['eta=0.1'] = parse_xgb_output(output)
-
-plt.plot(scores['eta=0.1'].num_iter, scores['eta=0.1'].val_auc,
-        label='0.1')
-plt.plot(scores['eta=0.3'].num_iter, scores['eta=0.3'].val_auc,
-        label='0.3')
-plt.legend()
-
-plt.ylim([0.43, 0.45])
-plt.xlim([50, 100])
